@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Online Class Note Saver</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f6f9fc;
+      color: #222;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+    .dark-mode {
+      background-color: #121212;
+      color: #e0e0e0;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background-color: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .dark-mode .container {
+      background-color: #1e1e1e;
+    }
+    textarea, input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    .button-group {
+      margin-top: 10px;
+    }
+    button {
+      margin: 5px 5px 5px 0;
+      padding: 10px 15px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #preview {
+      background: #eef;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 5px;
+      min-height: 150px;
+    }
+    .dark-mode #preview {
+      background-color: #2a2a2a;
+    }
+    footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📚 Online Class Note Saver</h1>
+
+    <h3>👩‍🎓 Student Information</h3>
+    <input type="text" id="studentName" placeholder="Student Name" />
+    <input type="text" id="studentRoll" placeholder="Roll Number" />
+    <input type="text" id="studentClass" placeholder="Class" />
+    <input type="text" id="studentSchool" placeholder="School Name" />
+
+    <h3>📖 Note Information</h3>
+    <select id="subject">
+      <option value="english">English</option>
+      <option value="math">Math</option>
+      <option value="science">Science</option>
+      <option value="ict">ICT</option>
+      <option value="custom">Other...</option>
+    </select>
+    <input type="text" id="customSubject" placeholder="Write custom subject" style="display:none;" />
+
+    <textarea id="note" placeholder="Write your class note using Markdown..."></textarea>
+
+    <div class="button-group">
+      <button onclick="saveNote()">💾 Save</button>
+      <button onclick="clearNote()">🗑️ Clear</button>
+      <button onclick="downloadPDF()">⬇️ Download PDF</button>
+      <button onclick="toggleDarkMode()">🌙 Dark Mode</button>
+    </div>
+
+    <h3>📌 Preview:</h3>
+    <div id="preview">No note yet.</div>
+    <div id="savedInfo"></div>
+  </div>
+
+  <footer>
+    Developed by <strong>Mahmudul Arefin Rafi</strong>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const subjectSelect = document.getElementById("subject");
+    const customSubjectInput = document.getElementById("customSubject");
+    const noteField = document.getElementById("note");
+    const previewDiv = document.getElementById("preview");
+    const savedInfo = document.getElementById("savedInfo");
+
+    subjectSelect.addEventListener("change", () => {
+      customSubjectInput.style.display = subjectSelect.value === "custom" ? "block" : "none";
+      loadNote();
+    });
+
+    customSubjectInput.addEventListener("input", loadNote);
+    noteField.addEventListener("input", updatePreview);
+
+    function getCurrentSubjectKey() {
+      const subject = subjectSelect.value === "custom"
+        ? customSubjectInput.value.trim().toLowerCase()
+        : subjectSelect.value;
+      return "note-" + subject;
+    }
+
+    function saveNote() {
+      const name = document.getElementById("studentName").value;
+      const roll = document.getElementById("studentRoll").value;
+      const sclass = document.getElementById("studentClass").value;
+      const school = document.getElementById("studentSchool").value;
+      const note = noteField.value;
+      const subjectKey = getCurrentSubjectKey();
+
+      if (!name || !roll || !sclass || !school || !note) {
+        alert("🔴 Please fill in all student and note fields!");
+        return;
+      }
+
+      const data = {
+        name, roll, sclass, school, note,
+        date: new Date().toLocaleString()
+      };
+
+      localStorage.setItem(subjectKey, JSON.stringify(data));
+      alert("✅ Note saved!");
+      loadNote();
+    }
+
+    function loadNote() {
+      const subjectKey = getCurrentSubjectKey();
+      const data = localStorage.getItem(subjectKey);
+      if (!data) {
+        noteField.value = "";
+        previewDiv.innerHTML = "No note yet.";
+        savedInfo.innerHTML = "";
+        return;
+      }
+      const parsed = JSON.parse(data);
+      noteField.value = parsed.note;
+      previewDiv.innerHTML = marked.parse(parsed.note);
+      savedInfo.innerHTML = `
+        <p><strong>Name:</strong> ${parsed.name}</p>
+        <p><strong>Roll:</strong> ${parsed.roll}</p>
+        <p><strong>Class:</strong> ${parsed.sclass}</p>
+        <p><strong>School:</strong> ${parsed.school}</p>
+        <p><strong>Saved at:</strong> ${parsed.date}</p>
+      `;
+    }
+
+    function clearNote() {
+      const subjectKey = getCurrentSubjectKey();
+      localStorage.removeItem(subjectKey);
+      alert("🗑️ Note deleted!");
+      loadNote();
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+    }
+
+    function downloadPDF() {
+      const note = noteField.value;
+      const subject = getCurrentSubjectKey().replace("note-", "").toUpperCase();
+      const blob = new Blob([`Subject: ${subject}\n\n${note}`], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${subject}_Note.pdf`;
+      link.click();
+    }
+
+    function updatePreview() {
+      previewDiv.innerHTML = noteField.value.trim()
+        ? marked.parse(noteField.value)
+        : "No note yet.";
+    }
+
+    loadNote();
+  </script>
+</body>
+</html>
