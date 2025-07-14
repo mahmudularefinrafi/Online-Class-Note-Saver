@@ -104,7 +104,10 @@
     Developed by <strong>Mahmudul Arefin Rafi</strong>
   </footer>
 
+  <!-- Markdown & jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
   <script>
     const subjectSelect = document.getElementById("subject");
     const customSubjectInput = document.getElementById("customSubject");
@@ -182,20 +185,34 @@
       document.body.classList.toggle("dark-mode");
     }
 
-    function downloadPDF() {
-      const note = noteField.value;
-      const subject = getCurrentSubjectKey().replace("note-", "").toUpperCase();
-      const blob = new Blob([`Subject: ${subject}\n\n${note}`], { type: "application/pdf" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `${subject}_Note.pdf`;
-      link.click();
-    }
+    async function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
 
-    function updatePreview() {
-      previewDiv.innerHTML = noteField.value.trim()
-        ? marked.parse(noteField.value)
-        : "No note yet.";
+      const name = document.getElementById("studentName").value || "Unknown";
+      const roll = document.getElementById("studentRoll").value || "N/A";
+      const sclass = document.getElementById("studentClass").value || "N/A";
+      const school = document.getElementById("studentSchool").value || "N/A";
+      const subject = getCurrentSubjectKey().replace("note-", "").toUpperCase();
+      const note = noteField.value || "";
+
+      const content = `
+Subject: ${subject}
+Name: ${name}
+Roll: ${roll}
+Class: ${sclass}
+School: ${school}
+
+Note:
+${note}
+      `;
+
+      doc.setFont("Times", "Normal");
+      doc.setFontSize(12);
+      const lines = doc.splitTextToSize(content, 180);
+      doc.text(lines, 15, 20);
+
+      doc.save(`${subject}_Note.pdf`);
     }
 
     loadNote();
