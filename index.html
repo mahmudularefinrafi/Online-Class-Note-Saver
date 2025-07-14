@@ -33,6 +33,7 @@
       margin-top: 10px;
       border-radius: 5px;
       font-size: 16px;
+      box-sizing: border-box;
     }
     .button-group {
       margin-top: 10px;
@@ -45,6 +46,7 @@
       color: white;
       border-radius: 5px;
       cursor: pointer;
+      font-size: 16px;
     }
     button:hover {
       background-color: #45a049;
@@ -55,9 +57,13 @@
       margin-top: 15px;
       border-radius: 5px;
       min-height: 150px;
+      white-space: pre-wrap;
     }
     .dark-mode #preview {
       background-color: #2a2a2a;
+    }
+    #qr-code {
+      margin-top: 20px;
     }
     footer {
       text-align: center;
@@ -70,13 +76,13 @@
   <div class="container">
     <h1>📚 Online Class Note Saver</h1>
 
-    <h3>👩‍🎓 Student Information</h3>
-    <input type="text" id="studentName" placeholder="Student Name" />
+    <h3>👩‍🎓 Student Info</h3>
+    <input type="text" id="studentName" placeholder="Name" />
     <input type="text" id="studentRoll" placeholder="Roll Number" />
     <input type="text" id="studentClass" placeholder="Class" />
     <input type="text" id="studentSchool" placeholder="School Name" />
 
-    <h3>📖 Note Information</h3>
+    <h3>📖 Note Info</h3>
     <select id="subject">
       <option value="english">English</option>
       <option value="math">Math</option>
@@ -85,28 +91,31 @@
       <option value="custom">Other...</option>
     </select>
     <input type="text" id="customSubject" placeholder="Write custom subject" style="display:none;" />
-
     <textarea id="note" placeholder="Write your class note using Markdown..."></textarea>
 
     <div class="button-group">
       <button onclick="saveNote()">💾 Save</button>
       <button onclick="clearNote()">🗑️ Clear</button>
       <button onclick="downloadPDF()">⬇️ Download PDF</button>
+      <button onclick="generateQRCode()">🔗 Generate QR Code</button>
+      <button onclick="downloadAllNotes()">🗂️ Download All Notes Backup</button>
       <button onclick="toggleDarkMode()">🌙 Dark Mode</button>
     </div>
 
     <h3>📌 Preview:</h3>
     <div id="preview">No note yet.</div>
     <div id="savedInfo"></div>
+    <div id="qr-code"></div>
   </div>
 
   <footer>
     Developed by <strong>Mahmudul Arefin Rafi</strong>
   </footer>
 
-  <!-- Markdown & jsPDF -->
+  <!-- External Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <script>
     const subjectSelect = document.getElementById("subject");
@@ -114,32 +123,50 @@
     const noteField = document.getElementById("note");
     const previewDiv = document.getElementById("preview");
     const savedInfo = document.getElementById("savedInfo");
+    const qrDiv = document.getElementById("qr-code");
 
     subjectSelect.addEventListener("change", () => {
-      customSubjectInput.style.display = subjectSelect.value === "custom" ? "block" : "none";
+      if (subjectSelect.value === "custom") {
+        customSubjectInput.style.display = "block";
+      } else {
+        customSubjectInput.style.display = "none";
+      }
       loadNote();
+      qrDiv.innerHTML = "";
     });
 
-    customSubjectInput.addEventListener("input", loadNote);
-    noteField.addEventListener("input", updatePreview);
+    customSubjectInput.addEventListener("input", () => {
+      loadNote();
+      qrDiv.innerHTML = "";
+    });
+
+    noteField.addEventListener("input", () => {
+      updatePreview();
+      qrDiv.innerHTML = "";
+    });
 
     function getCurrentSubjectKey() {
-      const subject = subjectSelect.value === "custom"
-        ? customSubjectInput.value.trim().toLowerCase()
-        : subjectSelect.value;
+      let subject = subjectSelect.value;
+      if (subject === "custom") {
+        subject = customSubjectInput.value.trim().toLowerCase();
+      }
       return "note-" + subject;
     }
 
     function saveNote() {
-      const name = document.getElementById("studentName").value;
-      const roll = document.getElementById("studentRoll").value;
-      const sclass = document.getElementById("studentClass").value;
-      const school = document.getElementById("studentSchool").value;
-      const note = noteField.value;
+      const name = document.getElementById("studentName").value.trim();
+      const roll = document.getElementById("studentRoll").value.trim();
+      const sclass = document.getElementById("studentClass").value.trim();
+      const school = document.getElementById("studentSchool").value.trim();
+      const note = noteField.value.trim();
       const subjectKey = getCurrentSubjectKey();
 
       if (!name || !roll || !sclass || !school || !note) {
-        alert("🔴 Please fill in all student and note fields!");
+        alert("🔴 Please fill in all fields!");
+        return;
+      }
+      if(subjectKey === "note-") {
+        alert("🔴 Please provide a valid subject!");
         return;
       }
 
@@ -147,10 +174,10 @@
         name, roll, sclass, school, note,
         date: new Date().toLocaleString()
       };
-
       localStorage.setItem(subjectKey, JSON.stringify(data));
       alert("✅ Note saved!");
       loadNote();
+      qrDiv.innerHTML = "";
     }
 
     function loadNote() {
@@ -178,7 +205,15 @@
       const subjectKey = getCurrentSubjectKey();
       localStorage.removeItem(subjectKey);
       alert("🗑️ Note deleted!");
-      loadNote();
+      noteField.value = "";
+      previewDiv.innerHTML = "No note yet.";
+      savedInfo.innerHTML = "";
+      qrDiv.innerHTML = "";
+    }
+
+    function updatePreview() {
+      const markdownText = noteField.value;
+      previewDiv.innerHTML = markdownText ? marked.parse(markdownText) : "No note yet.";
     }
 
     function toggleDarkMode() {
@@ -211,10 +246,64 @@ ${note}
       doc.setFontSize(12);
       const lines = doc.splitTextToSize(content, 180);
       doc.text(lines, 15, 20);
-
       doc.save(`${subject}_Note.pdf`);
     }
 
+    function generateQRCode() {
+      qrDiv.innerHTML = "";
+      const key = getCurrentSubjectKey();
+      const data = localStorage.getItem(key);
+      if (!data) {
+        alert("❌ No saved note found to generate QR code!");
+        return;
+      }
+      const parsed = JSON.parse(data);
+      const qrText = `Subject: ${key.replace("note-", "").toUpperCase()}
+Name: ${parsed.name}
+Roll: ${parsed.roll}
+Class: ${parsed.sclass}
+School: ${parsed.school}
+Date: ${parsed.date}
+Note: ${parsed.note}`;
+
+      new QRCode(qrDiv, {
+        text: qrText,
+        width: 250,
+        height: 250,
+      });
+    }
+
+    function downloadAllNotes() {
+      let allNotes = "";
+      for (let key in localStorage) {
+        if (key.startsWith("note-")) {
+          const data = JSON.parse(localStorage.getItem(key));
+          allNotes += `Subject: ${key.replace("note-", "").toUpperCase()}
+Name: ${data.name}
+Roll: ${data.roll}
+Class: ${data.sclass}
+School: ${data.school}
+Date: ${data.date}
+Note:
+${data.note}
+
+--------------------------
+
+`;
+        }
+      }
+      if(allNotes === "") {
+        alert("No saved notes found for backup!");
+        return;
+      }
+      const blob = new Blob([allNotes], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "All_Subject_Notes_Backup.txt";
+      a.click();
+    }
+
+    // Initial load of the note if any
     loadNote();
   </script>
 </body>
