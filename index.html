@@ -33,6 +33,7 @@
       margin-top: 10px;
       border-radius: 5px;
       font-size: 16px;
+      box-sizing: border-box;
     }
     .button-group {
       margin-top: 10px;
@@ -45,6 +46,7 @@
       color: white;
       border-radius: 5px;
       cursor: pointer;
+      user-select: none;
     }
     button:hover {
       background-color: #45a049;
@@ -55,12 +57,14 @@
       margin-top: 15px;
       border-radius: 5px;
       min-height: 150px;
+      white-space: pre-wrap;
     }
     .dark-mode #preview {
       background-color: #2a2a2a;
     }
     #qr-code {
       margin-top: 20px;
+      text-align: center;
     }
     footer {
       text-align: center;
@@ -72,10 +76,10 @@
 <body>
   <div class="container">
     <h1>📚 Online Class Note Saver</h1>
-    <input type="text" id="studentName" placeholder="Name" />
-    <input type="text" id="studentRoll" placeholder="Roll Number" />
-    <input type="text" id="studentClass" placeholder="Class" />
-    <input type="text" id="studentSchool" placeholder="School Name" />
+    <input type="text" id="studentName" placeholder="Name" autocomplete="off" />
+    <input type="text" id="studentRoll" placeholder="Roll Number" autocomplete="off" />
+    <input type="text" id="studentClass" placeholder="Class" autocomplete="off" />
+    <input type="text" id="studentSchool" placeholder="School Name" autocomplete="off" />
 
     <select id="subject">
       <option value="english">English</option>
@@ -84,15 +88,15 @@
       <option value="ict">ICT</option>
       <option value="custom">Other...</option>
     </select>
-    <input type="text" id="customSubject" placeholder="Write custom subject" style="display:none;" />
+    <input type="text" id="customSubject" placeholder="Write custom subject" style="display:none;" autocomplete="off" />
     <textarea id="note" placeholder="Write your class note using Markdown..."></textarea>
 
     <div class="button-group">
       <button onclick="saveNote()">💾 Save</button>
-      <button onclick="clearNote()">🗑️ Clear</button>
-      <button onclick="downloadPDF()">⬇️ PDF</button>
-      <button onclick="generateQRCode()">🔗 QR</button>
-      <button onclick="downloadAllNotes()">🗂️ Backup All</button>
+      <button onclick="clearNote()">🗑️ Clear Subject Notes</button>
+      <button onclick="downloadPDF()">⬇️ Download PDF</button>
+      <button onclick="generateQRCode()">🔗 Generate QR</button>
+      <button onclick="downloadAllNotes()">🗂️ Download All Notes Backup</button>
       <button onclick="toggleDarkMode()">🌙 Dark Mode</button>
     </div>
 
@@ -117,12 +121,24 @@
     const qrDiv = document.getElementById("qr-code");
 
     subjectSelect.addEventListener("change", () => {
-      customSubjectInput.style.display = subjectSelect.value === "custom" ? "block" : "none";
+      if(subjectSelect.value === "custom") {
+        customSubjectInput.style.display = "block";
+      } else {
+        customSubjectInput.style.display = "none";
+      }
       loadNote();
+      qrDiv.innerHTML = "";
     });
 
-    customSubjectInput.addEventListener("input", loadNote);
-    noteField.addEventListener("input", updatePreview);
+    customSubjectInput.addEventListener("input", () => {
+      loadNote();
+      qrDiv.innerHTML = "";
+    });
+
+    noteField.addEventListener("input", () => {
+      updatePreview();
+      qrDiv.innerHTML = "";
+    });
 
     function getCurrentSubjectKey() {
       const subject = subjectSelect.value === "custom"
@@ -140,7 +156,7 @@
       const subjectKey = getCurrentSubjectKey();
 
       if (!name || !roll || !sclass || !school || !note || subjectKey === "note-") {
-        alert("🔴 Fill in all fields!");
+        alert("Please fill in all fields and write a note!");
         return;
       }
 
@@ -151,11 +167,10 @@
 
       let notesArray = JSON.parse(localStorage.getItem(subjectKey)) || [];
       notesArray.push(newNote);
-      localStorage.setItem(subjectKey, JSON.stringify(notesArray));
 
-      alert("✅ Note saved!");
+      localStorage.setItem(subjectKey, JSON.stringify(notesArray));
+      alert("Note saved successfully!");
       loadNote();
-      qrDiv.innerHTML = "";
     }
 
     function loadNote() {
@@ -185,9 +200,12 @@
 
     function clearNote() {
       const subjectKey = getCurrentSubjectKey();
-      localStorage.removeItem(subjectKey);
-      alert("🗑️ All notes for this subject deleted!");
-      loadNote();
+      if(confirm("Are you sure to delete all notes for this subject?")) {
+        localStorage.removeItem(subjectKey);
+        alert("All notes for this subject deleted!");
+        loadNote();
+        qrDiv.innerHTML = "";
+      }
     }
 
     function toggleDarkMode() {
@@ -200,6 +218,11 @@
       const subjectKey = getCurrentSubjectKey();
       const notes = JSON.parse(localStorage.getItem(subjectKey)) || [];
       let y = 10;
+
+      if(notes.length === 0){
+        alert("No notes to generate PDF!");
+        return;
+      }
 
       notes.forEach((n, index) => {
         const content = `Note ${index + 1}
@@ -228,7 +251,7 @@ Note: ${n.note}
       const key = getCurrentSubjectKey();
       const data = localStorage.getItem(key);
       if (!data) {
-        alert("❌ No note found to generate QR code!");
+        alert("No note found to generate QR code!");
         return;
       }
       const notes = JSON.parse(data);
@@ -269,6 +292,10 @@ ${data.note}
           });
         }
       }
+      if(allNotes === ""){
+        alert("No notes saved yet!");
+        return;
+      }
       const blob = new Blob([allNotes], { type: "text/plain" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -276,7 +303,8 @@ ${data.note}
       a.click();
     }
 
-    loadNote();
+    // Load note when page loads
+    window.onload = loadNote;
   </script>
 </body>
 </html>
