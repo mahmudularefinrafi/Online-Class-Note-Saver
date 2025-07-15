@@ -67,7 +67,7 @@
       text-align: center;
     }
     #previousNotes {
-      margin-top: 20px;
+      margin-top: 30px;
       padding: 15px;
       background-color: #f0f0f0;
       border-radius: 8px;
@@ -113,14 +113,14 @@
       <button onclick="generateQRCode()">🔗 Generate QR</button>
       <button onclick="downloadAllNotes()">🗂️ Download All Notes</button>
       <button onclick="toggleDarkMode()">🌙 Dark Mode</button>
-      <button onclick="togglePreviousNotes()">📖 Show Previous Notes</button>
     </div>
 
     <h3>📌 Preview:</h3>
     <div id="preview">No note yet.</div>
     <div id="savedInfo"></div>
     <div id="qr-code"></div>
-    <div id="previousNotes" style="display:none;"></div>
+
+    <div id="previousNotes"></div>
   </div>
 
   <footer>Developed by <strong>Mahmudul Arefin Rafi</strong></footer>
@@ -145,7 +145,11 @@
       qrDiv.innerHTML = "";
     });
 
-    customSubjectInput.addEventListener("input", loadNote);
+    customSubjectInput.addEventListener("input", () => {
+      loadNote();
+      qrDiv.innerHTML = "";
+    });
+
     noteField.addEventListener("input", updatePreview);
 
     function getCurrentSubjectKey() {
@@ -153,6 +157,10 @@
         ? customSubjectInput.value.trim().toLowerCase()
         : subjectSelect.value;
       return "note-" + subject;
+    }
+
+    function updatePreview() {
+      previewDiv.innerHTML = marked.parse(noteField.value);
     }
 
     function saveNote() {
@@ -189,22 +197,33 @@
         noteField.value = "";
         previewDiv.innerHTML = "No note yet.";
         savedInfo.innerHTML = "";
+        previousNotesDiv.innerHTML = "<p>No previous notes found for this subject.</p>";
         return;
       }
 
       const notes = JSON.parse(data);
       const lastNote = notes[notes.length - 1];
-
       noteField.value = lastNote.note;
       previewDiv.innerHTML = marked.parse(lastNote.note);
+
       savedInfo.innerHTML = `
         <p><strong>Name:</strong> ${lastNote.name}</p>
         <p><strong>Roll:</strong> ${lastNote.roll}</p>
         <p><strong>Class:</strong> ${lastNote.sclass}</p>
         <p><strong>School:</strong> ${lastNote.school}</p>
         <p><strong>Saved at:</strong> ${lastNote.date}</p>
-        <p style="color:gray;">(${notes.length} notes saved for this subject)</p>
       `;
+
+      // Show all notes below
+      previousNotesDiv.innerHTML = `<h3>📘 Previous Notes for ${subjectKey.replace("note-", "").toUpperCase()}</h3>` + notes.map((n, i) => `
+        <div class="note-card">
+          <strong>Note ${i + 1} (${n.date})</strong><br/>
+          <strong>Name:</strong> ${n.name} | <strong>Roll:</strong> ${n.roll} | <strong>Class:</strong> ${n.sclass}<br/>
+          <strong>School:</strong> ${n.school}<br/>
+          <strong>Note:</strong><br/>
+          <div>${marked.parse(n.note)}</div>
+        </div>
+      `).join("");
     }
 
     function toggleDarkMode() {
@@ -217,8 +236,6 @@
         localStorage.removeItem(subjectKey);
         loadNote();
         qrDiv.innerHTML = "";
-        previousNotesDiv.innerHTML = "";
-        previousNotesDiv.style.display = "none";
       }
     }
 
@@ -311,29 +328,6 @@ ${data.note}
       a.href = URL.createObjectURL(blob);
       a.download = "All_Subject_Notes_Backup.txt";
       a.click();
-    }
-
-    function togglePreviousNotes() {
-      const subjectKey = getCurrentSubjectKey();
-      const notes = JSON.parse(localStorage.getItem(subjectKey)) || [];
-
-      if (notes.length === 0) {
-        previousNotesDiv.innerHTML = "<p>No previous notes found for this subject.</p>";
-        previousNotesDiv.style.display = "block";
-        return;
-      }
-
-      previousNotesDiv.innerHTML = notes.map((n, i) => `
-        <div class="note-card">
-          <strong>Note ${i+1} (${n.date})</strong><br/>
-          <strong>Name:</strong> ${n.name} | <strong>Roll:</strong> ${n.roll} | <strong>Class:</strong> ${n.sclass}<br/>
-          <strong>School:</strong> ${n.school}<br/>
-          <strong>Note:</strong><br/>
-          <div>${marked.parse(n.note)}</div>
-        </div>
-      `).join("");
-
-      previousNotesDiv.style.display = previousNotesDiv.style.display === "none" ? "block" : "none";
     }
 
     window.onload = loadNote;
