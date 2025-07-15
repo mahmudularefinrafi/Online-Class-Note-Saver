@@ -56,7 +56,7 @@
       padding: 15px;
       margin-top: 15px;
       border-radius: 5px;
-      min-height: 150px;
+      min-height: 100px;
       white-space: pre-wrap;
     }
     .dark-mode #preview {
@@ -65,6 +65,21 @@
     #qr-code {
       margin-top: 20px;
       text-align: center;
+    }
+    #previousNotes {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .dark-mode #previousNotes {
+      background-color: #2e2e2e;
+    }
+    .note-card {
+      border-bottom: 1px solid #ccc;
+      padding: 10px 0;
     }
     footer {
       text-align: center;
@@ -96,15 +111,18 @@
       <button onclick="clearNote()">🗑️ Clear Subject Notes</button>
       <button onclick="downloadPDF()">⬇️ Download PDF</button>
       <button onclick="generateQRCode()">🔗 Generate QR</button>
-      <button onclick="downloadAllNotes()">🗂️ Download All Notes Backup</button>
+      <button onclick="downloadAllNotes()">🗂️ Download All Notes</button>
       <button onclick="toggleDarkMode()">🌙 Dark Mode</button>
+      <button onclick="togglePreviousNotes()">📖 Show Previous Notes</button>
     </div>
 
     <h3>📌 Preview:</h3>
     <div id="preview">No note yet.</div>
     <div id="savedInfo"></div>
     <div id="qr-code"></div>
+    <div id="previousNotes" style="display:none;"></div>
   </div>
+
   <footer>Developed by <strong>Mahmudul Arefin Rafi</strong></footer>
 
   <!-- External Libraries -->
@@ -119,26 +137,16 @@
     const previewDiv = document.getElementById("preview");
     const savedInfo = document.getElementById("savedInfo");
     const qrDiv = document.getElementById("qr-code");
+    const previousNotesDiv = document.getElementById("previousNotes");
 
     subjectSelect.addEventListener("change", () => {
-      if(subjectSelect.value === "custom") {
-        customSubjectInput.style.display = "block";
-      } else {
-        customSubjectInput.style.display = "none";
-      }
+      customSubjectInput.style.display = subjectSelect.value === "custom" ? "block" : "none";
       loadNote();
       qrDiv.innerHTML = "";
     });
 
-    customSubjectInput.addEventListener("input", () => {
-      loadNote();
-      qrDiv.innerHTML = "";
-    });
-
-    noteField.addEventListener("input", () => {
-      updatePreview();
-      qrDiv.innerHTML = "";
-    });
+    customSubjectInput.addEventListener("input", loadNote);
+    noteField.addEventListener("input", updatePreview);
 
     function getCurrentSubjectKey() {
       const subject = subjectSelect.value === "custom"
@@ -156,7 +164,7 @@
       const subjectKey = getCurrentSubjectKey();
 
       if (!name || !roll || !sclass || !school || !note || subjectKey === "note-") {
-        alert("Please fill in all fields and write a note!");
+        alert("🔴 Fill in all fields!");
         return;
       }
 
@@ -167,10 +175,11 @@
 
       let notesArray = JSON.parse(localStorage.getItem(subjectKey)) || [];
       notesArray.push(newNote);
-
       localStorage.setItem(subjectKey, JSON.stringify(notesArray));
-      alert("Note saved successfully!");
+
+      alert("✅ Note saved!");
       loadNote();
+      qrDiv.innerHTML = "";
     }
 
     function loadNote() {
@@ -198,18 +207,43 @@
       `;
     }
 
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+    }
+
     function clearNote() {
       const subjectKey = getCurrentSubjectKey();
       if(confirm("Are you sure to delete all notes for this subject?")) {
         localStorage.removeItem(subjectKey);
-        alert("All notes for this subject deleted!");
         loadNote();
         qrDiv.innerHTML = "";
+        previousNotesDiv.innerHTML = "";
+        previousNotesDiv.style.display = "none";
       }
     }
 
-    function toggleDarkMode() {
-      document.body.classList.toggle("dark-mode");
+    function generateQRCode() {
+      qrDiv.innerHTML = "";
+      const key = getCurrentSubjectKey();
+      const data = localStorage.getItem(key);
+      if (!data) {
+        alert("❌ No note found!");
+        return;
+      }
+      const notes = JSON.parse(data);
+      const lastNote = notes[notes.length - 1];
+      const qrText = `Subject: ${key.replace("note-", "").toUpperCase()}
+Name: ${lastNote.name}
+Roll: ${lastNote.roll}
+Class: ${lastNote.sclass}
+School: ${lastNote.school}
+Date: ${lastNote.date}
+Note: ${lastNote.note}`;
+      new QRCode(qrDiv, {
+        text: qrText,
+        width: 250,
+        height: 250,
+      });
     }
 
     async function downloadPDF() {
@@ -220,7 +254,7 @@
       let y = 10;
 
       if(notes.length === 0){
-        alert("No notes to generate PDF!");
+        alert("❌ No notes to generate PDF!");
         return;
       }
 
@@ -246,30 +280,6 @@ Note: ${n.note}
       doc.save(`${subjectKey.replace("note-", "")}_All_Notes.pdf`);
     }
 
-    function generateQRCode() {
-      qrDiv.innerHTML = "";
-      const key = getCurrentSubjectKey();
-      const data = localStorage.getItem(key);
-      if (!data) {
-        alert("No note found to generate QR code!");
-        return;
-      }
-      const notes = JSON.parse(data);
-      const lastNote = notes[notes.length - 1];
-      const qrText = `Subject: ${key.replace("note-", "").toUpperCase()}
-Name: ${lastNote.name}
-Roll: ${lastNote.roll}
-Class: ${lastNote.sclass}
-School: ${lastNote.school}
-Date: ${lastNote.date}
-Note: ${lastNote.note}`;
-      new QRCode(qrDiv, {
-        text: qrText,
-        width: 250,
-        height: 250,
-      });
-    }
-
     function downloadAllNotes() {
       let allNotes = "";
       for (let key in localStorage) {
@@ -293,7 +303,7 @@ ${data.note}
         }
       }
       if(allNotes === ""){
-        alert("No notes saved yet!");
+        alert("❌ No notes to export!");
         return;
       }
       const blob = new Blob([allNotes], { type: "text/plain" });
@@ -303,7 +313,29 @@ ${data.note}
       a.click();
     }
 
-    // Load note when page loads
+    function togglePreviousNotes() {
+      const subjectKey = getCurrentSubjectKey();
+      const notes = JSON.parse(localStorage.getItem(subjectKey)) || [];
+
+      if (notes.length === 0) {
+        previousNotesDiv.innerHTML = "<p>No previous notes found for this subject.</p>";
+        previousNotesDiv.style.display = "block";
+        return;
+      }
+
+      previousNotesDiv.innerHTML = notes.map((n, i) => `
+        <div class="note-card">
+          <strong>Note ${i+1} (${n.date})</strong><br/>
+          <strong>Name:</strong> ${n.name} | <strong>Roll:</strong> ${n.roll} | <strong>Class:</strong> ${n.sclass}<br/>
+          <strong>School:</strong> ${n.school}<br/>
+          <strong>Note:</strong><br/>
+          <div>${marked.parse(n.note)}</div>
+        </div>
+      `).join("");
+
+      previousNotesDiv.style.display = previousNotesDiv.style.display === "none" ? "block" : "none";
+    }
+
     window.onload = loadNote;
   </script>
 </body>
